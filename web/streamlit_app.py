@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone
 
 load_dotenv()
-API_BASE = os.getenv("API_BASE", "http://localhost:8000")
+FASTAPI_BASE_URL = os.getenv("FASTAPI_BASE_URL", "http://localhost:8001")
 
 MAX_RESUME_MB = int(os.getenv("MAX_RESUME_MB", 3))
 MAX_JOB_DESCRIPTION_FILE_MB = int(os.getenv("MAX_JOB_DESCRIPTION_MB", 2))
@@ -14,7 +14,7 @@ def file_too_large(file_obj, max_mb):
     return len(file_obj.getvalue()) > max_mb * 1024 * 1024
 
 try:
-    resp = requests.post(f"{API_BASE}/clean/cleanup/", json={"current_time": datetime.now(timezone.utc).isoformat()})
+    resp = requests.post(f"{FASTAPI_BASE_URL}/clean/cleanup/", json={"current_time": datetime.now(timezone.utc).isoformat()})
     if resp.ok:
         print("DB Cleanup succeeded")
     else:
@@ -203,7 +203,9 @@ if st.button("Upload Job Description", key="jd_upload", use_container_width=True
 
         with st.spinner("Processing job description..."):
             try:
-                resp = requests.post(f"{API_BASE}/ranker/upload-job-description/", data=data, files=files)
+                # --- MODIFIED HERE ---
+                resp = requests.post(f"{FASTAPI_BASE_URL}/ranker/upload-job-description/", data=data, files=files)
+                # --- END MODIFIED ---
             except Exception as e:
                 st.error(f"Connection error: {e}")
                 resp = None
@@ -298,7 +300,9 @@ if resume_files:
             files = [("resumes", (f.name, f, "application/pdf")) for f in resume_files]
             with st.spinner(f"Uploading {len(resume_files)} resumes..."):
                 try:
-                    resp = requests.post(f"{API_BASE}/resumes/upload-resume/", data={"job_id": job_id}, files=files)
+                    # --- MODIFIED HERE ---
+                    resp = requests.post(f"{FASTAPI_BASE_URL}/resumes/upload-resume/", data={"job_id": job_id}, files=files)
+                    # --- END MODIFIED ---
                 except Exception as e:
                     st.error(f"Connection error: {e}")
                     resp = None
@@ -361,7 +365,9 @@ if resume_files:
         else:
             with st.spinner("Analyzing and ranking resumes..."):
                 try:
-                    resp = requests.post(f"{API_BASE}/ranker/rank-resumes/", data={"job_id": job_id})
+                    # --- MODIFIED HERE ---
+                    resp = requests.post(f"{FASTAPI_BASE_URL}/ranker/rank-resumes/", data={"job_id": job_id})
+                    # --- END MODIFIED ---
                 except Exception as e:
                     st.error(f"Connection error: {e}")
                     resp = None
@@ -382,7 +388,7 @@ if resume_files:
                                         border-radius: 12px; padding: 1.5rem; text-align: center;
                                         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                                 <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">#{i + 1}</div>
-                                <div title="{candidate.get('filename')}" style=" font-weight: 600; font-size: 1.1rem; margin-bottom: 1rem; word-wrap: break-word; overflow-wrap: break-word; text-align: center; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; ">
+                                <div title="{candidate.get('filename')}" style=" font-weight: 600; font-size: 1.1rem; margin-bottom: 1rem; word-wrap: break-word; overflow-wrap: break-word; text-align: center; max-width: 100%; white-content: nowrap; overflow: hidden; text-overflow: ellipsis; ">
                                     {candidate.get('candidate_name') or candidate.get('filename') or 'Candidate ' + str(i + 1)}
                                 </div>
                                 <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -407,7 +413,7 @@ if resume_files:
                     with dl_col1:
                         st.download_button(
                             label="Download as CSV",
-                            data=requests.post(f"{API_BASE}/ranker/download-ranked-resumes-csv/",
+                            data=requests.post(f"{FASTAPI_BASE_URL}/ranker/download-ranked-resumes-csv/",
                                                data={"job_id": job_id}).content,
                             file_name="ranked_resumes.csv",
                             mime="text/csv"
@@ -415,7 +421,7 @@ if resume_files:
                     with dl_col2:
                         st.download_button(
                             label="Download as Excel",
-                            data=requests.post(f"{API_BASE}/ranker/download-ranked-resumes-excel/",
+                            data=requests.post(f"{FASTAPI_BASE_URL}/ranker/download-ranked-resumes-excel/",
                                                data={"job_id": job_id}).content,
                             file_name="ranked_resumes.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

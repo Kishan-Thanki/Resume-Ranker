@@ -6,7 +6,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-API_BASE = os.getenv("API_BASE", default="http://localhost:8000")
+FASTAPI_BASE_URL = os.getenv("FASTAPI_BASE_URL", default="http://localhost:8001")
 
 DB_EXPIRY_HOURS = int(os.getenv("DB_EXPIRY_HOURS", 12))
 
