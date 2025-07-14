@@ -1,8 +1,0 @@
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.env
-.venv
-uploads_resumes/
-*.db

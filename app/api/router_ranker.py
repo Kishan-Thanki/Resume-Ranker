@@ -1,9 +1,11 @@
 import io
-from app import crud
+from app.db import crud
 from typing import Optional
 from sqlalchemy.orm import Session
-from app.database import SessionLocal
+from app.db.database import SessionLocal
 from fastapi.responses import StreamingResponse
+
+from app.schemas import JobDescriptionResponse
 from app.utils.similarity import rank_resumes_by_similarity
 from app.utils.job_description_parser import extract_text_job_file
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
@@ -29,12 +31,12 @@ async def upload_job_description(
         raise HTTPException(status_code=400, detail="Provide job_text or job_file.")
 
     job_content = job_text or extract_text_job_file(job_file)
-    job_id = crud.insert_job_description(db, job_content.strip())
+    job_response: JobDescriptionResponse = crud.insert_job_description(db, job_content.strip())
 
     return {
         "message": "Job Description uploaded and stored.",
-        "job_id": job_id,
-        "text": job_content.strip()
+        "job_id": job_response.id,
+        "text": job_response.text
     }
 
 @router.post("/rank-resumes/")
@@ -54,12 +56,13 @@ async def rank_resumes(job_id: str = Form(...), db: Session = Depends(get_db)):
         "ranked_resumes": results
     }
 
-
 @router.post("/download-ranked-resumes-csv/")
 async def download_ranked_csv(job_id: str = Form(...), db: Session = Depends(get_db)):
     job_text, resumes = crud.get_job_and_resumes(db, job_id)
-    if not job_text or not resumes:
-        raise HTTPException(status_code=404, detail="Invalid JD or resumes not found")
+    if not job_text:
+        raise HTTPException(status_code=404, detail="Job Description not found for download.")
+    if not resumes:
+        raise HTTPException(status_code=404, detail="No resumes found to download for this JD.")
 
     ranked = rank_resumes_by_similarity(job_text, resumes)
     csv_bytes = generate_csv_ranked_resumes(ranked)
@@ -73,8 +76,10 @@ async def download_ranked_csv(job_id: str = Form(...), db: Session = Depends(get
 @router.post("/download-ranked-resumes-excel/")
 async def download_ranked_excel(job_id: str = Form(...), db: Session = Depends(get_db)):
     job_text, resumes = crud.get_job_and_resumes(db, job_id)
-    if not job_text or not resumes:
-        raise HTTPException(status_code=404, detail="Invalid JD or resumes not found")
+    if not job_text:
+        raise HTTPException(status_code=404, detail="Job Description not found for download.")
+    if not resumes:
+        raise HTTPException(status_code=404, detail="No resumes found to download for this JD.")
 
     ranked = rank_resumes_by_similarity(job_text, resumes)
     excel_bytes = generate_excel_from_ranked_data(ranked)
