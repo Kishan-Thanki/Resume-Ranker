@@ -90,7 +90,7 @@ st.markdown("""
 st.markdown("""
 <div class="header">
     <h1 style='font-size: 2.4rem; font-weight: 700; margin-bottom: 0.4rem; color: #1e293b;'>
-        Resume Ranker AI
+        Resume Ranker
     </h1>
     <p style='font-size: 1.1rem; color: #475569; margin-bottom: 0.5rem;'>
         Upload a Job Description and multiple resumes. Get AI-powered ranking and insights.
