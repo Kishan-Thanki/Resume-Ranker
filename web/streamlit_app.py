@@ -26,7 +26,7 @@ except requests.exceptions.ConnectionError:
 # Configure page
 layout="centered"
 st.set_page_config(
-    page_title="Resume Ranker AI",
+    page_title="Resume Ranker",
     layout=layout,
 )
 
