@@ -20,7 +20,7 @@ Resume Ranker is a lightweight ATS-style system that allows users to upload a jo
 
 ## Project Structure
 ```
-📁 resume-ranker
+resume-ranker
 ├── app/
     ├── api/
     ├── db/
