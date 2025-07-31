@@ -43,6 +43,10 @@ def insert_resumes(db: Session, job_id: str, resumes: List[dict]) -> List[str]:
                 job_id=job_id,
                 filename=res["filename"],
                 text=res["text"],
+                skills=res.get("skills", {}),
+                experience=res.get("experience", {}),
+                education=res.get("education", {}),
+                contact=res.get("contact", {}),
                 expires_at=expires_at
             )
             db.add(resume)
@@ -68,7 +72,11 @@ def get_job_and_resumes(db: Session, job_id: str) -> tuple[str, list[dict]]:
         {
             "uuid": r.uuid,
             "filename": r.filename,
-            "text": r.text
+            "text": r.text,
+            "skills": r.skills or {},
+            "experience": r.experience or {},
+            "education": r.education or {},
+            "contact": r.contact or {}
         }
         for r in resumes
     ]

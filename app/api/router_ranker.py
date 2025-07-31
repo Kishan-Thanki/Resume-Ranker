@@ -6,11 +6,10 @@ from app.db.database import SessionLocal
 from fastapi.responses import StreamingResponse
 
 from app.schemas import JobDescriptionResponse
-from app.utils.similarity import rank_resumes_by_similarity
+from app.utils.similarity import rank_resumes_by_similarity, rank_resumes_enhanced
 from app.utils.job_description_parser import extract_text_job_file
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from app.utils.exports import generate_csv_ranked_resumes, generate_excel_from_ranked_data
-
 
 router = APIRouter()
 
@@ -48,7 +47,8 @@ async def rank_resumes(job_id: str = Form(...), db: Session = Depends(get_db)):
     if not resumes:
         raise HTTPException(status_code=404, detail="No resumes found for this JD.")
 
-    results = rank_resumes_by_similarity(job_text, resumes)
+    # Use enhanced ranking with skills-based matching
+    results = rank_resumes_enhanced(job_text, resumes)
 
     return {
         "job_description_id": job_id,
@@ -64,7 +64,7 @@ async def download_ranked_csv(job_id: str = Form(...), db: Session = Depends(get
     if not resumes:
         raise HTTPException(status_code=404, detail="No resumes found to download for this JD.")
 
-    ranked = rank_resumes_by_similarity(job_text, resumes)
+    ranked = rank_resumes_enhanced(job_text, resumes)
     csv_bytes = generate_csv_ranked_resumes(ranked)
 
     return StreamingResponse(
@@ -81,7 +81,7 @@ async def download_ranked_excel(job_id: str = Form(...), db: Session = Depends(g
     if not resumes:
         raise HTTPException(status_code=404, detail="No resumes found to download for this JD.")
 
-    ranked = rank_resumes_by_similarity(job_text, resumes)
+    ranked = rank_resumes_enhanced(job_text, resumes)
     excel_bytes = generate_excel_from_ranked_data(ranked)
 
     return StreamingResponse(
@@ -89,3 +89,34 @@ async def download_ranked_excel(job_id: str = Form(...), db: Session = Depends(g
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=ranked_resumes_{job_id}.xlsx"}
     )
+
+@router.get("/resume-analysis/{job_id}/{resume_uuid}")
+async def get_resume_analysis(job_id: str, resume_uuid: str, db: Session = Depends(get_db)):
+    """Get detailed analysis of a specific resume"""
+    job_text, resumes = crud.get_job_and_resumes(db, job_id)
+    
+    if not job_text:
+        raise HTTPException(status_code=404, detail="Job Description not found.")
+    
+    # Find the specific resume
+    target_resume = None
+    for resume in resumes:
+        if resume['uuid'] == resume_uuid:
+            target_resume = resume
+            break
+    
+    if not target_resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+    
+    # Get detailed analysis
+    from app.utils.enhanced_similarity import EnhancedSimilarityScorer
+    scorer = EnhancedSimilarityScorer()
+    
+    job_dict = {'text': job_text}
+    analysis = scorer.get_detailed_analysis(job_dict, target_resume)
+    
+    return {
+        "resume_uuid": resume_uuid,
+        "filename": target_resume['filename'],
+        "analysis": analysis
+    }

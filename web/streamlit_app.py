@@ -395,7 +395,13 @@ if resume_files:
                                     <div style="background-color: white; border-radius: 8px; padding: 8px;">
                                         <div style="font-size: 0.9rem; color: #64748b;">Overall Score</div>
                                         <div style="font-size: 1.4rem; font-weight: 700; color: #1e40af;">
-                                            {candidate['score']:.1f}%
+                                            {candidate.get('combined_score', candidate.get('score', 0)):.1f}%
+                                        </div>
+                                    </div>
+                                    <div style="background-color: white; border-radius: 8px; padding: 8px;">
+                                        <div style="font-size: 0.8rem; color: #64748b;">Skills Score</div>
+                                        <div style="font-size: 1.1rem; font-weight: 600; color: #059669;">
+                                            {candidate.get('skill_score', 0):.1f}%
                                         </div>
                                     </div>
                                 </div>

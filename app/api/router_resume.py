@@ -6,7 +6,7 @@ from app.db import crud
 from typing import List
 from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
-from app.utils.resume_parser import extract_text_resume
+from app.utils.resume_parser import extract_text_resume, extract_enhanced_resume_data
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 
@@ -40,11 +40,16 @@ async def upload_resume(
             with open(file_path, "wb") as buffer:
                 buffer.write(await file.read())
 
-            extracted_text = extract_text_resume(file_path)
+            # Use enhanced resume parsing
+            enhanced_data = extract_enhanced_resume_data(file_path)
             parsed_resumes.append({
                 "uuid": resume_id,
                 "filename": file.filename,
-                "text": extracted_text.strip()
+                "text": enhanced_data['raw_text'].strip(),
+                "skills": enhanced_data['skills'],
+                "experience": enhanced_data['experience'],
+                "education": enhanced_data['education'],
+                "contact": enhanced_data['contact']
             })
         except Exception as e:
             print(f"Error processing resume {file.filename}: {e}")
