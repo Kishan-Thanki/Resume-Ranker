@@ -35,13 +35,13 @@ class EnhancedSimilarityScorer:
         return found_skills
     
     def calculate_skill_match_score(self, job_skills: Dict[str, List[str]], resume_skills: Dict[str, List[str]]) -> float:
-        """Calculate skill-specific matching score"""
+        """Calculate skill-specific matching score (case-insensitive, trimmed)"""
         if not job_skills or not resume_skills:
             return 0.0
-        
+
         total_score = 0.0
         total_weight = 0.0
-        
+
         # Define weights for different skill categories
         category_weights = {
             'programming': 0.25,
@@ -52,23 +52,27 @@ class EnhancedSimilarityScorer:
             'methodologies': 0.10,
             'languages': 0.05
         }
-        
+
         for category, job_skill_list in job_skills.items():
             if category in resume_skills and job_skill_list:
                 resume_skill_list = resume_skills[category]
-                
+
+                # Normalize skills: lowercase and strip spaces
+                job_skill_set = set(s.lower().strip() for s in job_skill_list)
+                resume_skill_set = set(s.lower().strip() for s in resume_skill_list)
+
                 # Calculate matches
-                matches = len(set(job_skill_list) & set(resume_skill_list))
-                total_required = len(job_skill_list)
-                
+                matches = len(job_skill_set & resume_skill_set)
+                total_required = len(job_skill_set)
+
                 # Calculate category score
                 category_score = matches / total_required if total_required > 0 else 0.0
-                
+
                 # Apply weight
                 weight = category_weights.get(category, 0.05)
                 total_score += category_score * weight
                 total_weight += weight
-        
+
         # Normalize score
         final_score = (total_score / total_weight) * 100 if total_weight > 0 else 0.0
         return round(final_score, 2)
@@ -243,16 +247,12 @@ class EnhancedSimilarityScorer:
         }
     
     def get_missing_skills(self, job_skills: Dict[str, List[str]], resume_skills: Dict[str, List[str]]) -> Dict[str, List[str]]:
-        """Identify skills that are required but missing from resume"""
+        """Identify skills that are required but missing from resume (case-insensitive)"""
         missing_skills = {}
-        
         for category, job_skill_list in job_skills.items():
-            if category in resume_skills:
-                resume_skill_list = resume_skills[category]
-                missing = list(set(job_skill_list) - set(resume_skill_list))
-                if missing:
-                    missing_skills[category] = missing
-            else:
-                missing_skills[category] = job_skill_list
-        
-        return missing_skills 
+            job_skill_set = set(s.lower().strip() for s in job_skill_list)
+            resume_skill_set = set(s.lower().strip() for s in resume_skills.get(category, []))
+            missing = list(job_skill_set - resume_skill_set)
+            if missing:
+                missing_skills[category] = missing
+        return missing_skills
