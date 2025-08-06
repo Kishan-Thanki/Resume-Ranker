@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for enhanced resume parsing and ranking features
+Test script for resume parsing and ranking features
 """
 
 import sys
@@ -11,8 +11,8 @@ from app.utils.enhanced_resume_parser import EnhancedResumeParser
 from app.utils.enhanced_similarity import EnhancedSimilarityScorer
 
 def test_enhanced_parser():
-    """Test the enhanced resume parser"""
-    print("Testing Enhanced Resume Parser...")
+    """Test the resume parser"""
+    print("Testing Resume Parser...")
     
     parser = EnhancedResumeParser()
     
@@ -63,8 +63,8 @@ def test_enhanced_parser():
             os.remove(test_file)
 
 def test_enhanced_similarity():
-    """Test the enhanced similarity scoring"""
-    print("\nTesting Enhanced Similarity Scoring...")
+    """Test the  similarity scoring"""
+    print("\nTesting Similarity Scoring...")
     
     scorer = EnhancedSimilarityScorer()
     
@@ -115,7 +115,7 @@ def test_enhanced_similarity():
     # Rank resumes
     results = scorer.rank_resumes_enhanced(job_description, resumes)
     
-    print("✓ Enhanced ranking successful!")
+    print("✓Ranking successful!")
     for i, result in enumerate(results):
         print(f"\nRank {i+1}: {result['filename']}")
         print(f"  Combined Score: {result['combined_score']}%")
@@ -153,22 +153,22 @@ def test_skill_extraction():
     return skills
 
 if __name__ == "__main__":
-    print("Enhanced Resume Ranker - Feature Test")
+    print("Resume Ranker - Feature Test")
     print("=" * 50)
     
     try:
-        # Test enhanced parser
+        # Test parser
         parsed_resume = test_enhanced_parser()
         
         # Test skill extraction
         extracted_skills = test_skill_extraction()
         
-        # Test enhanced similarity
+        # Test similarity
         ranking_results = test_enhanced_similarity()
         
         print("\n" + "=" * 50)
         print("✓ All tests completed successfully!")
-        print("Enhanced features are working correctly.")
+        print("Features are working correctly.")
         
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
