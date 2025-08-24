@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-# Load the env into the application
+# Loads the env into the application
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")

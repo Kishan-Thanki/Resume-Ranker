@@ -1,11 +1,13 @@
 #!/bin/bash
 
 # Load .env variables if the file exists
-[ -f .env ] && export $(cat .env | xargs)
+if [ -f .env ]; then
+  export $(cat .env | xargs)
+fi
 
 # Set ports
-FASTAPI_INTERNAL_PORT=${FASTAPI_INTERNAL_PORT:-8001}
 PUBLIC_PORT=${PORT:-8501}
+FASTAPI_INTERNAL_PORT=${FASTAPI_INTERNAL_PORT:-8002}
 
 # Start FastAPI in background
 echo "Starting FastAPI on port ${FASTAPI_INTERNAL_PORT}..."
@@ -19,4 +21,4 @@ done
 
 # Start Streamlit
 echo "Starting Streamlit on port ${PUBLIC_PORT}..."
-streamlit run web/streamlit_app.py --server.port "${PUBLIC_PORT}" --server.enableCORS true --server.enableXsrfProtection false
+streamlit run web/streamlit_app.py --server.port "${PUBLIC_PORT}" --server.enableCORS true

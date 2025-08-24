@@ -1,8 +1,8 @@
-from datetime import datetime
 from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends
+from datetime import datetime, timezone
 from app.db.crud import cleanup_old_data
 from app.db.database import SessionLocal
-from fastapi import APIRouter, Depends, Body
 
 router = APIRouter()
 
@@ -14,11 +14,8 @@ def get_db():
         db.close()
 
 @router.post("/cleanup/")
-async def cleanup_expired_entries(current_time: dict = Body(...), db: Session = Depends(get_db)):
-    try:
-        dt = datetime.fromisoformat(current_time["current_time"])
-    except (KeyError, ValueError):
-        return {"error": "Invalid or missing datetime. Expected ISO 8601 format under key 'current_time'."}
+async def cleanup_expired_entries(db: Session = Depends(get_db)):
+    current_time = datetime.now(timezone.utc)
+    result = cleanup_old_data(db, current_time)
 
-    result = cleanup_old_data(db, dt)
     return {"status": "cleanup complete", **result}

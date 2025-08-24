@@ -1,14 +1,11 @@
-import os, uuid
-
-
-
-from app.db import crud
+import os
+import uuid
 from typing import List
+from app.db import crud
 from sqlalchemy.orm import Session
 from app.db.database import SessionLocal
-from app.utils.resume_parser import extract_text_resume, extract_enhanced_resume_data
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
+from app.utils.resume_parser import ResumeParser
+from fastapi import APIRouter, UploadFile, Form, Depends, HTTPException
 
 router = APIRouter()
 
@@ -23,13 +20,12 @@ def get_db():
         db.close()
 
 @router.post('/upload-resume/')
-async def upload_resume(
-    job_id: str = Form(...),
-    resumes: List[UploadFile] = File(...),
-    db: Session = Depends(get_db)
-):
+async def upload_resume(job_id: str = Form(...), resumes: List[UploadFile] = Form(...), db: Session = Depends(get_db)):
     parsed_resumes = []
     failed_uploads = []
+    resume_filenames = []
+
+    parser = ResumeParser()
 
     for file in resumes:
         resume_id = str(uuid.uuid4())
@@ -40,16 +36,15 @@ async def upload_resume(
             with open(file_path, "wb") as buffer:
                 buffer.write(await file.read())
 
-            # Use enhanced resume parsing
-            enhanced_data = extract_enhanced_resume_data(file_path)
+            enhanced_data = parser.parse_resume(file_path)
             parsed_resumes.append({
                 "uuid": resume_id,
                 "filename": file.filename,
-                "text": enhanced_data['raw_text'].strip(),
-                "skills": enhanced_data['skills'],
-                "experience": enhanced_data['experience'],
-                "education": enhanced_data['education'],
-                "contact": enhanced_data['contact']
+                "text": enhanced_data.get('raw_text', '').strip(),
+                "skills": enhanced_data.get('skills', []),
+                "experience": enhanced_data.get('experience', []),
+                "education": enhanced_data.get('education', []),
+                "contact": enhanced_data.get('contact', {})
             })
         except Exception as e:
             print(f"Error processing resume {file.filename}: {e}")
@@ -64,15 +59,12 @@ async def upload_resume(
     if parsed_resumes:
         try:
             crud.insert_resumes(db, job_id, parsed_resumes)
-        except IntegrityError:
-            raise HTTPException(status_code=409, detail="A database conflict occurred during resume storage. Please try again.")
-        except SQLAlchemyError as e:
-            raise HTTPException(status_code=500, detail=f"Database error while storing resumes: {e}")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"An unexpected error occurred while storing resumes: {e}")
+            print(f"Database error while storing resumes: {e}")
+            raise HTTPException(status_code=500, detail="An error occurred while storing resumes.")
     else:
         if failed_uploads:
-            raise HTTPException(status_code=400, detail=f"No resumes could be processed successfully. Failed: {', '.join(failed_uploads)}")
+            raise HTTPException(status_code=400, detail=f"No resumes could be processed. Failed: {', '.join(failed_uploads)}")
         else:
             raise HTTPException(status_code=400, detail="No resumes provided or no valid resumes could be processed.")
 
@@ -80,9 +72,12 @@ async def upload_resume(
     if failed_uploads:
         response_message += f" However, the following resumes failed to process: {', '.join(failed_uploads)}."
 
+    for r in parsed_resumes:
+        resume_filenames.append(r["filename"])
+
     return {
         "message": response_message,
         "count": len(parsed_resumes),
-        "resumes": [r["filename"] for r in parsed_resumes],
+        "resumes": resume_filenames,
         "failed_resumes": failed_uploads
     }

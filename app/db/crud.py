@@ -2,15 +2,12 @@ import config
 from uuid import uuid4
 from typing import List
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, timezone
 from app.db.models import Job_Description, Resume
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-
-from app.schemas import JobDescriptionCreate, JobDescriptionResponse, ResumeCreate, ResumeResponse
+from datetime import datetime, timedelta, timezone
 
 EXPIRY_HOURS = config.DB_EXPIRY_HOURS
 
-def insert_job_description(db: Session, job_text: str) -> JobDescriptionResponse:
+def insert_job_description(db: Session, job_text: str) -> dict:
     try:
         job_id = str(uuid4())
         expires_at = datetime.now(timezone.utc) + timedelta(hours=EXPIRY_HOURS)
@@ -20,10 +17,11 @@ def insert_job_description(db: Session, job_text: str) -> JobDescriptionResponse
         db.commit()
         db.refresh(job)
 
-        return JobDescriptionResponse.model_validate(job)
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise
+        return {
+            "id": job.id,
+            "text": job.text,
+            "expires_at": job.expires_at.isoformat()
+        }
     except Exception as e:
         db.rollback()
         raise
@@ -61,15 +59,15 @@ def insert_resumes(db: Session, job_id: str, resumes: List[dict]) -> List[str]:
         raise
 
 def get_job_and_resumes(db: Session, job_id: str) -> tuple[str, list[dict]]:
-    # Query the Job_Description Model based on the job_id and returns the first one found
     job = db.query(Job_Description).filter(Job_Description.id == job_id).first()
     if not job:
         return "", []
 
-    # If job_id found, it gets all the related resume from Resume Model based on the job_id
     resumes = db.query(Resume).filter(Resume.job_id == job_id).all()
-    resume_list = [
-        {
+
+    resume_list = []
+    for r in resumes:
+        resume_dict = {
             "uuid": r.uuid,
             "filename": r.filename,
             "text": r.text,
@@ -78,8 +76,7 @@ def get_job_and_resumes(db: Session, job_id: str) -> tuple[str, list[dict]]:
             "education": r.education or {},
             "contact": r.contact or {}
         }
-        for r in resumes
-    ]
+        resume_list.append(resume_dict)
 
     return job.text, resume_list
 
@@ -87,6 +84,7 @@ def cleanup_old_data(db: Session, current_time: datetime) -> dict:
     deleted_resumes = db.query(Resume).filter(Resume.expires_at <= current_time).delete()
     deleted_jobs = db.query(Job_Description).filter(Job_Description.expires_at <= current_time).delete()
     db.commit()
+
     return {
         "deleted_job_descriptions": deleted_jobs,
         "deleted_resumes": deleted_resumes

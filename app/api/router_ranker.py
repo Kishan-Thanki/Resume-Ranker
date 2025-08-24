@@ -1,12 +1,10 @@
 import io
 from app.db import crud
-from typing import Optional
 from sqlalchemy.orm import Session
+from typing import Optional, List, Dict
 from app.db.database import SessionLocal
 from fastapi.responses import StreamingResponse
-
-from app.schemas import JobDescriptionResponse
-from app.utils.similarity import rank_resumes_by_similarity, rank_resumes_enhanced
+from app.utils.similarity import SimilarityScorer
 from app.utils.job_description_parser import extract_text_job_file
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from app.utils.exports import generate_csv_ranked_resumes, generate_excel_from_ranked_data
@@ -20,36 +18,37 @@ def get_db():
     finally:
         db.close()
 
+def get_ranked_data(job_id: str, db: Session) -> List[Dict]:
+    job_text, resumes = crud.get_job_and_resumes(db, job_id)
+
+    if not job_text:
+        raise HTTPException(status_code=404, detail=f"Job Description with ID '{job_id}' not found.")
+    if not resumes:
+        raise HTTPException(status_code=404, detail="No resumes found for this job.")
+
+    scorer = SimilarityScorer()
+    job_dict = {'text': job_text}
+    ranked = scorer.rank_resumes_enhanced(job_dict, resumes)
+
+    return ranked
+
 @router.post("/upload-job-description/")
-async def upload_job_description(
-    job_text: Optional[str] = Form(None),
-    job_file: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db)
-):
+async def upload_job_description(job_text: Optional[str] = Form(None), job_file: Optional[UploadFile] = File(None), db: Session = Depends(get_db)):
     if not job_text and not job_file:
         raise HTTPException(status_code=400, detail="Provide job_text or job_file.")
 
     job_content = job_text or extract_text_job_file(job_file)
-    job_response: JobDescriptionResponse = crud.insert_job_description(db, job_content.strip())
+    job_response = crud.insert_job_description(db, job_content.strip())
 
     return {
         "message": "Job Description uploaded and stored.",
-        "job_id": job_response.id,
-        "text": job_response.text
+        "job_id": job_response["id"],
+        "text": job_response["text"]
     }
 
 @router.post("/rank-resumes/")
-async def rank_resumes(job_id: str = Form(...), db: Session = Depends(get_db)):
-    job_text, resumes = crud.get_job_and_resumes(db, job_id)
-
-    if not job_text:
-        raise HTTPException(status_code=404, detail="Job Description not found.")
-    if not resumes:
-        raise HTTPException(status_code=404, detail="No resumes found for this JD.")
-
-    # Use enhanced ranking with skills-based matching
-    results = rank_resumes_enhanced(job_text, resumes)
-
+async def rank_resumes_endpoint(job_id: str = Form(...), db: Session = Depends(get_db)):
+    results = get_ranked_data(job_id, db)
     return {
         "job_description_id": job_id,
         "total_resumes": len(results),
@@ -58,13 +57,7 @@ async def rank_resumes(job_id: str = Form(...), db: Session = Depends(get_db)):
 
 @router.post("/download-ranked-resumes-csv/")
 async def download_ranked_csv(job_id: str = Form(...), db: Session = Depends(get_db)):
-    job_text, resumes = crud.get_job_and_resumes(db, job_id)
-    if not job_text:
-        raise HTTPException(status_code=404, detail="Job Description not found for download.")
-    if not resumes:
-        raise HTTPException(status_code=404, detail="No resumes found to download for this JD.")
-
-    ranked = rank_resumes_enhanced(job_text, resumes)
+    ranked = get_ranked_data(job_id, db)
     csv_bytes = generate_csv_ranked_resumes(ranked)
 
     return StreamingResponse(
@@ -75,13 +68,7 @@ async def download_ranked_csv(job_id: str = Form(...), db: Session = Depends(get
 
 @router.post("/download-ranked-resumes-excel/")
 async def download_ranked_excel(job_id: str = Form(...), db: Session = Depends(get_db)):
-    job_text, resumes = crud.get_job_and_resumes(db, job_id)
-    if not job_text:
-        raise HTTPException(status_code=404, detail="Job Description not found for download.")
-    if not resumes:
-        raise HTTPException(status_code=404, detail="No resumes found to download for this JD.")
-
-    ranked = rank_resumes_enhanced(job_text, resumes)
+    ranked = get_ranked_data(job_id, db)
     excel_bytes = generate_excel_from_ranked_data(ranked)
 
     return StreamingResponse(
@@ -90,33 +77,17 @@ async def download_ranked_excel(job_id: str = Form(...), db: Session = Depends(g
         headers={"Content-Disposition": f"attachment; filename=ranked_resumes_{job_id}.xlsx"}
     )
 
+
 @router.get("/resume-analysis/{job_id}/{resume_uuid}")
-async def get_resume_analysis(job_id: str, resume_uuid: str, db: Session = Depends(get_db)):
-    """Get detailed analysis of a specific resume"""
-    job_text, resumes = crud.get_job_and_resumes(db, job_id)
-    
-    if not job_text:
-        raise HTTPException(status_code=404, detail="Job Description not found.")
-    
-    # Find the specific resume
-    target_resume = None
-    for resume in resumes:
-        if resume['uuid'] == resume_uuid:
-            target_resume = resume
-            break
-    
-    if not target_resume:
-        raise HTTPException(status_code=404, detail="Resume not found.")
-    
-    # Get detailed analysis
-    from app.utils.enhanced_similarity import EnhancedSimilarityScorer
-    scorer = EnhancedSimilarityScorer()
-    
-    job_dict = {'text': job_text}
-    analysis = scorer.get_detailed_analysis(job_dict, target_resume)
-    
-    return {
-        "resume_uuid": resume_uuid,
-        "filename": target_resume['filename'],
-        "analysis": analysis
-    }
+async def resume_analysis_endpoint(job_id: str, resume_uuid: str, db: Session = Depends(get_db)):
+    ranked_resumes = get_ranked_data(job_id, db)
+
+    for resume in ranked_resumes:
+        if str(resume.get("uuid")) == resume_uuid:
+            return {
+                "job_description_id": job_id,
+                "resume_uuid": resume_uuid,
+                "analysis": resume
+            }
+
+    raise HTTPException(status_code=404, detail=f"Resume with UUID '{resume_uuid}' not found for job ID '{job_id}'.")
