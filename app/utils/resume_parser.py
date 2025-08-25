@@ -2,8 +2,6 @@ import re
 import fitz
 from typing import Dict, List
 from datetime import datetime
-import calendar
-
 
 class ResumeParser:
     def __init__(self):
@@ -167,7 +165,7 @@ class ResumeParser:
         if total_months > 0:
             experience_info['years_experience'] = round(total_months / 12, 1)
 
-        # Find companies and positions from the entire text, as they are not always strictly within the work experience section
+        # Find companies and positions from the entire text
         for pattern in self.company_patterns:
             matches = re.findall(pattern, text)
             experience_info['companies'].extend([match.strip() for match in matches])
