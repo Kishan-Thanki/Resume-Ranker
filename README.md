@@ -41,7 +41,7 @@ Getting Started
 
 To get a feel for the application, you can check out the live demo and the GitHub repository.
 
-*   **Live Demo:** https://resume-ranker-n511.onrender.com/
+*   **Live Demo:** https://resume-ranker.kishanthanki.dev/
     
 *   **GitHub Repository:** https://github.com/Kishan-Thanki/Resume-Ranker
 
